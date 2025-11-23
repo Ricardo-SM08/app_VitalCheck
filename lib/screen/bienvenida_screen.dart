@@ -14,11 +14,7 @@ class _BienvenidaScreenState extends State<BienvenidaScreen> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: [
-        BienvenidaLogo(),
-        BienvenidaTitulo(),
-        BienvenidaBoton()
-      ],
+      children: [BienvenidaLogo(), BienvenidaTitulo(), BienvenidaBoton()],
     );
   }
 }

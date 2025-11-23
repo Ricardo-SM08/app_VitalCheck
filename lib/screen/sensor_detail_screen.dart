@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:vital_check1/screen/indicadores_screen.dart'; 
+import 'package:vital_check1/screen/indicadores_screen.dart';
 
 class SensorDetailScreen extends StatefulWidget {
   final String sensorName;
@@ -12,16 +12,16 @@ class SensorDetailScreen extends StatefulWidget {
 
 class _SensorDetailScreenState extends State<SensorDetailScreen> {
   final List<FlSpot> _chartData = const [
-    FlSpot(0, 18), 
-    FlSpot(1, 27), 
-    FlSpot(2, 25), 
-    FlSpot(3, 30), 
-    FlSpot(4, 36), 
-    FlSpot(5, 24), 
-    FlSpot(6, 12), 
-    FlSpot(7, 30), 
-    FlSpot(8, 36), 
-    FlSpot(9, 19), 
+    FlSpot(0, 18),
+    FlSpot(1, 27),
+    FlSpot(2, 25),
+    FlSpot(3, 30),
+    FlSpot(4, 36),
+    FlSpot(5, 24),
+    FlSpot(6, 12),
+    FlSpot(7, 30),
+    FlSpot(8, 36),
+    FlSpot(9, 19),
   ];
 
   final List<String> _xAxisLabels = const [
@@ -40,31 +40,31 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), 
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
         title: Text(
           widget.sensorName,
           style: const TextStyle(color: Colors.white, fontSize: 24),
         ),
-        backgroundColor: const Color(0xFF212121), 
+        backgroundColor: const Color(0xFF212121),
         foregroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () {
             Navigator.pushReplacement(
-            context, 
-            MaterialPageRoute(
-              builder: (context) => const IndicadoresScreen(), 
-            ),
-          );
-        },
+              context,
+              MaterialPageRoute(
+                builder: (context) => const IndicadoresScreen(),
+              ),
+            );
+          },
         ),
       ),
       body: Column(
         children: <Widget>[
           Container(
-            height: 250, 
+            height: 250,
             margin: const EdgeInsets.all(15),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -72,42 +72,58 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Padding(
-              padding: const EdgeInsets.only(right: 18.0, left: 12.0, top: 24, bottom: 12),
+              padding: const EdgeInsets.only(
+                right: 18.0,
+                left: 12.0,
+                top: 24,
+                bottom: 12,
+              ),
               child: LineChart(
                 LineChartData(
                   gridData: FlGridData(
                     show: true,
                     drawVerticalLine: true,
-                    horizontalInterval: 10, 
-                    verticalInterval: 1, 
+                    horizontalInterval: 10,
+                    verticalInterval: 1,
                     getDrawingHorizontalLine: (value) {
                       return const FlLine(
-                        color: Color.fromARGB(255, 255, 255, 255), 
+                        color: Color.fromARGB(255, 255, 255, 255),
                         strokeWidth: 1,
                       );
                     },
                     getDrawingVerticalLine: (value) {
                       return const FlLine(
-                        color: Color.fromARGB(255, 255, 255, 255), 
+                        color: Color.fromARGB(255, 255, 255, 255),
                         strokeWidth: 1,
                       );
                     },
                   ),
                   titlesData: FlTitlesData(
                     show: true,
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 30,
                         interval: 1,
                         getTitlesWidget: (value, meta) {
-                          if (value.toInt() >= 0 && value.toInt() < _xAxisLabels.length) {
+                          if (value.toInt() >= 0 &&
+                              value.toInt() < _xAxisLabels.length) {
                             return SideTitleWidget(
                               axisSide: meta.axisSide,
                               space: 8.0,
-                              child: Text(_xAxisLabels[value.toInt()], style: const TextStyle(color: Color.fromARGB(255, 255, 255, 255), fontSize: 7)),
+                              child: Text(
+                                _xAxisLabels[value.toInt()],
+                                style: const TextStyle(
+                                  color: Color.fromARGB(255, 255, 255, 255),
+                                  fontSize: 7,
+                                ),
+                              ),
                             );
                           }
                           return const Text('');
@@ -117,9 +133,15 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
-                        interval: 10, 
+                        interval: 10,
                         getTitlesWidget: (value, meta) {
-                          return Text('${value.toInt()}', style: const TextStyle(color: Color.fromARGB(255, 255, 255, 255), fontSize: 10));
+                          return Text(
+                            '${value.toInt()}',
+                            style: const TextStyle(
+                              color: Color.fromARGB(255, 255, 255, 255),
+                              fontSize: 10,
+                            ),
+                          );
                         },
                         reservedSize: 40,
                       ),
@@ -127,26 +149,26 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                   ),
                   borderData: FlBorderData(
                     show: true,
-                    border: Border.all(color: const Color.fromARGB(255, 255, 255, 255), width: 1),
+                    border: Border.all(
+                      color: const Color.fromARGB(255, 255, 255, 255),
+                      width: 1,
+                    ),
                   ),
                   minX: 0,
-                  maxX: _chartData.length.toDouble() - 1, 
+                  maxX: _chartData.length.toDouble() - 1,
                   minY: 0,
-                  maxY: 40, 
+                  maxY: 40,
                   lineBarsData: [
                     LineChartBarData(
                       spots: _chartData,
-                      isCurved: true, 
-                      gradient: const LinearGradient( 
-                        colors: [
-                          Color(0xFF004AAD),
-                          Color(0xFF004AAD),
-                        ],
+                      isCurved: true,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF004AAD), Color(0xFF004AAD)],
                       ),
                       barWidth: 3,
                       isStrokeCapRound: true,
-                      dotData: const FlDotData(show: false), 
-                      belowBarData: BarAreaData(show: false), 
+                      dotData: const FlDotData(show: false),
+                      belowBarData: BarAreaData(show: false),
                     ),
                   ],
                 ),
@@ -154,19 +176,22 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
             ),
           ),
 
-          const SizedBox(height: 20), 
+          const SizedBox(height: 20),
 
           Expanded(
             child: ListView.builder(
-              itemCount: 4, 
+              itemCount: 4,
               itemBuilder: (context, index) {
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 15.0,
+                    vertical: 8.0,
+                  ),
                   child: Container(
-                    height: 80, 
+                    height: 80,
                     padding: const EdgeInsets.all(15),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF333333), 
+                      color: const Color(0xFF333333),
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
@@ -176,19 +201,19 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                         ),
                       ],
                     ),
-                    child: Row( 
+                    child: Row(
                       children: [
-                        const CircleAvatar( 
+                        const CircleAvatar(
                           radius: 25,
                           backgroundColor: Color(0xFF004AAD),
                         ),
-                        const SizedBox(width: 15), 
+                        const SizedBox(width: 15),
                         Expanded(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container( 
+                              Container(
                                 width: double.infinity,
                                 height: 10,
                                 color: Colors.grey,

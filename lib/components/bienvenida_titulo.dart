@@ -13,12 +13,7 @@ class _BienvenidaTituloState extends State<BienvenidaTitulo> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text('VitalCheck',
-          style: TextStyle(
-          color: Colors.white,
-          fontSize: 40
-          ),
-        )
+        Text('VitalCheck', style: TextStyle(color: Colors.white, fontSize: 40)),
       ],
     );
   }
