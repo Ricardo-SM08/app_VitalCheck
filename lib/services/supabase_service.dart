@@ -19,6 +19,37 @@ class SupabaseService {
     }
   }
 
+  static Future<String?> createFamily(
+    BuildContext context,
+    String familyName,
+  ) async {
+    try {
+      final userId = supabase.auth.currentUser!.id;
+
+      // 1. Insertar en la tabla 'familias' y devolver el registro creado (select)
+      final response = await supabase
+          .from('familias')
+          .insert({'nombre_familia': familyName, 'creador_id': userId})
+          .select()
+          .single(); // Obtenemos un solo resultado
+
+      // 2. Obtener el ID de la nueva familia
+      final newFamilyId = response['id'];
+
+      // 3. Añadir al creador como administrador en 'miembros_familia'
+      await supabase.from('miembros_familia').insert({
+        'id_familia': newFamilyId,
+        'id_usuario': userId,
+        'es_administrador': true,
+        'invitacion_aceptada': true,
+      });
+
+      return null; // Null significa éxito (sin errores)
+    } catch (e) {
+      return e.toString(); // Devuelve el mensaje de error
+    }
+  }
+
   // --- FUNCIÓN DE INSERCIÓN DE DATOS DE SENSORES ---
   // Usada por LecturaScreen.dart (no está en HomeScreen, pero es parte del servicio).
   static Future<void> insertSensorData(BuildContext context) async {

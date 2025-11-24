@@ -7,7 +7,7 @@ import 'package:vital_check1/screen/acceso_screen.dart'; // Pantalla principal
 
 //Importacion temporal para el funcionamiento sin acceso a la DB
 
-import 'package:vital_check1/screen/home_screen.dart';
+// import 'package:vital_check1/screen/home_screen.dart';
 
 // Variable global para usar supabase en toda la app
 final supabase = Supabase.instance.client;
@@ -42,14 +42,14 @@ class _MainAppState extends State<MainApp> {
   @override
   void initState() {
     super.initState();
-    _bypassAuthCheck();
+    //_bypassAuthCheck();
 
     //Temopralmente se muestra HomeScreen para desarrollo sin DB
     // Llama a la función para verificar el estado de autenticación
-    //_checkAuthState();
+    _checkAuthState();
   }
 
-  // --- FUNCIÓN TEMPORAL PARA SALTAR LA AUTENTICACIÓN ---
+  /*--- FUNCIÓN TEMPORAL PARA SALTAR LA AUTENTICACIÓN ---
 
   void _bypassAuthCheck() {
     // Muestra HomeScreen directamente
@@ -57,8 +57,8 @@ class _MainAppState extends State<MainApp> {
     if (mounted) {
       setState(() {});
     }
-  }
-  /*
+  }*/
+
   // --- LÓGICA DE VERIFICACIÓN Y REDIRECCIÓN ---
   void _checkAuthState() {
     // Verifica el estado actual de la sesión.
@@ -76,7 +76,6 @@ class _MainAppState extends State<MainApp> {
       setState(() {});
     }
   }
-  */
 
   @override
   Widget build(BuildContext context) {

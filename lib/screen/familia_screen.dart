@@ -145,41 +145,37 @@ class _FamiliaScreenState extends State<FamiliaScreen> {
 
   // --- FUNCIÓN DE CARGA DE DATOS DESDE SUPABASE ---
   Future<List<MemberData>> _loadFamilyData() async {
-    // ⚠️ Importante: Esto solo funcionará si el usuario tiene un perfil en la tabla 'usuarios'.
+    // La función se mantiene igual, la lógica de error se maneja en el build
     try {
-      // 1. Obtener la información de la familia del usuario logueado
       final List<Map<String, dynamic>> membersAndProfiles =
           await SupabaseService.fetchFamilyMembers(context);
 
       if (membersAndProfiles.isEmpty) {
-        return []; // No hay miembros, o no hay familia creada.
+        return [];
       }
 
-      // 2. Mapear los datos al formato MemberData
       return membersAndProfiles.map((member) {
-        // Accedemos a los datos de la relación 'usuarios'
         final userProfile = member['usuarios'];
-
-        // Simulación: No se trae la lectura real en este ejemplo para simplificar,
-        // pero aquí se llamaría a otra función para traer la última lectura de cada userProfile['id']
 
         return MemberData(
           userId: member['id_usuario'],
           name: userProfile['nombre'] ?? 'Desconocido',
           isAdmin: member['es_administrador'] ?? false,
-          // latestReadings: [Traer datos de registros_sensor aquí]
+          // latestReadings: [] (se mantiene simplificado)
         );
       }).toList();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al cargar datos familiares: ${e.toString()}'),
-          ),
-        );
-      }
-      return [];
+      // ⚠️ No manejamos el SnackBar aquí, dejamos que FutureBuilder lo maneje visualmente.
+      // throw e; // Propaga el error para que FutureBuilder lo capture
+      rethrow;
     }
+  }
+
+  // Función para forzar la recarga de los datos
+  void _refetchFamilyData() {
+    setState(() {
+      _familyDataFuture = _loadFamilyData();
+    });
   }
 
   // Funciones de navegación (Sin cambios)
@@ -230,11 +226,30 @@ class _FamiliaScreenState extends State<FamiliaScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
+
+          // 🚨 Manejo de Errores y Recarga 🚨
           if (snapshot.hasError) {
+            // Verifica si el error es de tipo PostgrestException para mensaje más claro
+            final errorMessage =
+                snapshot.error.toString().contains('PostgrestException')
+                ? 'Error de seguridad (RLS) o DB. Reintentar.'
+                : 'Error de carga: ${snapshot.error}';
+
             return Center(
-              child: Text(
-                'Error: ${snapshot.error}',
-                style: const TextStyle(color: Colors.red),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    errorMessage,
+                    style: const TextStyle(color: Colors.red, fontSize: 16),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed:
+                        _refetchFamilyData, // Llama a la función de recarga
+                    child: const Text('REINTENTAR CARGA'),
+                  ),
+                ],
               ),
             );
           }

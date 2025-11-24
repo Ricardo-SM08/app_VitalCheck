@@ -22,44 +22,57 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
   // --- FUNCIÓN DE GESTIÓN (Crear o Añadir Miembro) ---
   Future<void> _handleAction() async {
     final input = _linkController.text.trim();
+
+    // Validación básica
     if (input.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, escribe un nombre o correo.')),
+      );
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() => _isLoading = true); // Activar carga
 
     String? error;
 
-    // Si el input parece un nombre (no un correo), intentamos crear la familia.
-    if (!input.contains('@') && !input.contains('.')) {
-      // Intentar crear una nueva familia
-      // ⚠️ ESTO DEBE SER IMPLEMENTADO EN SupabaseService
-      // error = await SupabaseService.createFamily(context, input);
+    // LÓGICA:
+    // Si NO tiene '@', asumimos que es un NOMBRE DE FAMILIA para crear.
+    // Si TIENE '@', asumimos que es un CORREO para invitar.
 
-      // TEMPORAL: Simulación de creación de familia
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Intentando crear familia: "$input"...')),
-      );
+    if (!input.contains('@')) {
+      // --- CASO 1: CREAR FAMILIA ---
+      // Llamamos a la función real del servicio
+      error = await SupabaseService.createFamily(context, input);
+
+      if (error == null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Familia "$input" creada con éxito!')),
+        );
+      }
     } else {
-      // Si parece un correo, intentar añadir a alguien por email a una familia existente
-      // ⚠️ ESTO DEBE SER IMPLEMENTADO EN SupabaseService
-      // Obtener el ID de la familia actual (debes buscarlo primero)
-      // error = await SupabaseService.addMemberByEmail(context, familyId, input);
-
-      // TEMPORAL: Simulación de agregar miembro
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Intentando invitar a: "$input"...')),
-      );
+      // --- CASO 2: INVITAR MIEMBRO (Pendiente de implementar en servicio) ---
+      // Por ahora mostramos un mensaje temporal
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invitación a "$input" enviada (Simulado)')),
+        );
+      }
+      // error = await SupabaseService.inviteMember(context, input); // Futuro
     }
 
-    setState(() => _isLoading = false);
+    setState(() => _isLoading = false); // Desactivar carga
 
-    // Navegar de vuelta a la lista familiar después de la acción
+    // Si no hubo error, regresamos a la pantalla de Familia para ver los cambios
     if (mounted && error == null) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const FamiliaScreen()),
       );
+    } else if (mounted && error != null) {
+      // Mostrar error si falló
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $error')));
     }
   }
 
@@ -94,7 +107,7 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 const Text(
-                  'Agregar Persona',
+                  'Crear Familia',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 34,
@@ -105,14 +118,14 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
                 const SizedBox(height: 10),
 
                 const Text(
-                  'Ingresa el nombre para crear una familia o el correo del miembro que deseas añadir.',
+                  'Ingresa el nombre para crear tu familia.',
                   style: TextStyle(color: Colors.white, fontSize: 20),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
 
                 const Text(
-                  'Nombre / Correo',
+                  'Nombre de la Familia',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -122,12 +135,12 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
                 const SizedBox(height: 8),
 
                 TextField(
-                  controller: _linkController, // Conectado
+                  controller: _linkController, // Conectado al controlador
                   style: const TextStyle(color: Colors.black),
                   decoration: const InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
-                    hintText: 'Nombre de la familia o correo@ejemplo.com',
+                    hintText: 'Ej. Familia Pérez',
                     hintStyle: TextStyle(color: Colors.grey),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(10.0)),
@@ -138,7 +151,8 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
                       horizontal: 15.0,
                     ),
                   ),
-                  keyboardType: TextInputType.emailAddress,
+                  // Cambiado a 'text' porque es para nombres principalmente ahora
+                  keyboardType: TextInputType.text,
                 ),
 
                 const SizedBox(height: 80),
@@ -154,13 +168,12 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
                       ),
                       elevation: 5,
                     ),
-                    onPressed: _isLoading
-                        ? null
-                        : _handleAction, // Llama a la función de gestión
+                    // Si está cargando, deshabilita el botón. Si no, llama a _handleAction
+                    onPressed: _isLoading ? null : _handleAction,
                     child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text(
-                            'AÑADIR',
+                            'CREAR',
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
