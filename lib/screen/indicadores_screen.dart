@@ -1,115 +1,165 @@
 import 'package:flutter/material.dart';
 import 'package:vital_check1/screen/home_screen.dart';
-// Asegúrate de que esta ruta de importación sea correcta en tu proyecto
-import 'package:vital_check1/screen/sensor_detail_screen.dart'; 
+import 'package:vital_check1/screen/sensor_detail_screen.dart';
 
-// Color oscuro de fondo para la columna de sensores (similar al 0xFF333333)
+// Color oscuro de fondo para la columna de sensores
 const Color _sensorColumnBackground = Color(0xFF212121);
-// Color del fondo principal (blanco) para la parte de los medidores
-const Color _mainBackground = Colors.white; 
-
-// Widget auxiliar para construir los botones de la izquierda
-// CORRECCIÓN: Se añadió 'BuildContext context' y la lógica de navegación.
-Widget _buildSensorButton(BuildContext context, String label) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 10.0),
-    // CORRECCIÓN: Usamos InkWell para hacer el botón interactivo
-    child: InkWell( 
-      onTap: () {
-        // Lógica de navegación a la nueva pantalla, pasando el nombre del sensor
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SensorDetailScreen(sensorName: label),
-          ),
-        );
-      },
-      child: Container(
-        height: 100, // Altura del botón
-        decoration: BoxDecoration(
-          // La imagen del diseño original utiliza un gradiente claro. Si quieres el gris oscuro:
-          color: const Color(0xFF333333), 
-          borderRadius: BorderRadius.circular(15), 
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.5),
-              spreadRadius: 0,
-              blurRadius: 5,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white, // Texto en blanco
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-// Widget auxiliar para simular el velocímetro. 
-Widget _buildGaugeSimulator() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5.0),
-    child: SizedBox(
-      width: 120,
-      height: 120,
-      // Usamos el marcador de posición con imagen que habías definido
-      child: Image.asset('assets/images/indicador.png'), // Asume que tienes el asset
-    ),
-  );
-}
-
+// Color del fondo principal
+const Color _mainBackground = Colors.white;
 
 class IndicadoresScreen extends StatefulWidget {
-  const IndicadoresScreen({super.key});
+  // Variables para recibir los datos
+  final double? avgTemp;
+  final int? avgHeartRate;
+  final double? avgRespRate; // NUEVO: Para frecuencia respiratoria
+
+  const IndicadoresScreen({
+    super.key,
+    this.avgTemp,
+    this.avgHeartRate,
+    this.avgRespRate, // Opcional
+  });
 
   @override
   State<IndicadoresScreen> createState() => _IndicadoresScreenState();
 }
 
 class _IndicadoresScreenState extends State<IndicadoresScreen> {
+  // Widget para los botones de sensores
+  Widget _buildSensorButton(
+    BuildContext context,
+    String label,
+    IconData icon,
+    String value,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SensorDetailScreen(sensorName: label),
+            ),
+          );
+        },
+        child: Container(
+          height: 100,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: const Color(0xFF333333),
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.5),
+                blurRadius: 5,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 30),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                ), // Ajusté tamaño fuente
+                textAlign: TextAlign.center,
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.greenAccent,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Widget para simular el velocímetro
+  Widget _buildGaugeSimulator(String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: Column(
+        children: [
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 8),
+            ),
+            child: Center(
+              child: Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Preparar textos
+    final String tempText = widget.avgTemp != null
+        ? "${widget.avgTemp} °C"
+        : "--";
+    final String heartText = widget.avgHeartRate != null
+        ? "${widget.avgHeartRate} BPM"
+        : "--";
+    final String respText = widget.avgRespRate != null
+        ? "${widget.avgRespRate}"
+        : "--";
+
     return Scaffold(
-      backgroundColor: _mainBackground, 
+      backgroundColor: const Color.fromARGB(255, 91, 89, 89),
       body: SafeArea(
         child: Column(
           children: [
+            // Header
             Padding(
-              padding: const EdgeInsets.only(top: 10.0, left: 10.0, right: 20.0),
+              padding: const EdgeInsets.all(20.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Flecha de retroceso 
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 35, color: Colors.black),
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                      context, 
-                      MaterialPageRoute(
-                        builder: (context) => const HomeScreen(), 
-                      ),
-                    );
-                    },
-                  ),
-                  
-                  const Text(
-                    'Que tal estas?',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      size: 35,
                       color: Colors.black,
                     ),
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HomeScreen(),
+                        ),
+                      );
+                    },
                   ),
-                  const SizedBox(width: 45), 
+                  const Text(
+                    'Resultados',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 45),
                 ],
               ),
             ),
@@ -117,34 +167,46 @@ class _IndicadoresScreenState extends State<IndicadoresScreen> {
             Expanded(
               child: Row(
                 children: [
+                  // COLUMNA IZQUIERDA: Botones (AHORA SON 3)
                   Container(
                     width: MediaQuery.of(context).size.width * 0.45,
-                    padding: const EdgeInsets.only(left: 15.0, right: 20.0),
-                    color: _sensorColumnBackground, 
+                    color: _sensorColumnBackground,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        // CORRECCIÓN: Se pasa 'context'
-                        _buildSensorButton(context, 'Sensor 1'),
-                        _buildSensorButton(context, 'Sensor 2'),
-                        _buildSensorButton(context, 'Sensor 3'),
-                        _buildSensorButton(context, 'Sensor 4'),
+                      children: [
+                        _buildSensorButton(
+                          context,
+                          'Temperatura',
+                          Icons.thermostat,
+                          tempText,
+                        ),
+                        _buildSensorButton(
+                          context,
+                          'Ritmo Cardíaco',
+                          Icons.favorite,
+                          heartText,
+                        ),
+                        _buildSensorButton(
+                          context,
+                          'Frec. Respiratoria',
+                          Icons.air,
+                          respText,
+                        ),
                       ],
                     ),
                   ),
-                  
+
+                  // COLUMNA DERECHA: Gráficos (AHORA SON 3)
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.all(10.0),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: <Widget>[
-                          _buildGaugeSimulator(),
-                          _buildGaugeSimulator(),
-                          _buildGaugeSimulator(),
-                          _buildGaugeSimulator(),
+                        children: [
+                          _buildGaugeSimulator("Temp", tempText, Colors.orange),
+                          _buildGaugeSimulator("Ritmo", heartText, Colors.red),
+                          _buildGaugeSimulator("Resp", respText, Colors.blue),
                         ],
                       ),
                     ),

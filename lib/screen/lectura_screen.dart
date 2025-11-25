@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart'; // Librería Clásica
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart'; // Librería Clásica (HC-05)
 import 'package:permission_handler/permission_handler.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:vital_check1/main.dart'; // Para acceder a supabase
+import 'package:supabase_flutter/supabase_flutter.dart'; // Necesario si guardamos directo o usamos tipos
 import 'package:vital_check1/screen/home_screen.dart';
+import 'package:vital_check1/screen/indicadores_screen.dart'; // Para la redirección
 
 class LecturaScreen extends StatefulWidget {
   const LecturaScreen({super.key});
@@ -16,31 +16,39 @@ class LecturaScreen extends StatefulWidget {
 }
 
 class _LecturaScreenState extends State<LecturaScreen> {
-  // --- Variables Bluetooth Clásico ---
+  // --- Variables Bluetooth ---
   BluetoothConnection? connection;
   List<BluetoothDevice> _devicesList = [];
   bool _isConnecting = false;
   bool _isConnected = false;
+  String _buffer = ''; // Buffer para datos fragmentados
 
-  // Buffer para acumular datos parciales del HC-05
-  String _buffer = '';
+  // --- Variables de Datos en Tiempo Real ---
+  double _currentTemp = 0.0;
+  int _currentHeartRate = 0;
+  double _currentRespRate =
+      0.0; // CAMBIO: Ahora representa Frecuencia Respiratoria (antes AccX)
 
-  // --- Variables de Datos ---
-  double _temp = 0.0;
-  int _heartRate = 0;
-  double _accX = 0.0;
-  double _accY = 0.0;
-  double _accZ = 0.0;
+  // --- Listas para Calcular Promedios ---
+  final List<double> _tempReadings = [];
+  final List<int> _heartReadings = [];
+  final List<double> _respReadings = []; // CAMBIO: Lista para respiración
+
+  // --- Temporizador ---
+  Timer? _timer;
+  int _secondsRemaining = 105; // Duración de 105 segundos
+  bool _isReading = false;
 
   @override
   void initState() {
     super.initState();
     _requestPermissions();
-    _loadBondedDevices(); // Cargar dispositivos ya vinculados en el teléfono
+    _loadBondedDevices();
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     if (isConnected) {
       connection?.dispose();
     }
@@ -59,7 +67,7 @@ class _LecturaScreenState extends State<LecturaScreen> {
     ].request();
   }
 
-  // 2. Cargar dispositivos vinculados (La forma más fácil con HC-05)
+  // 2. Cargar dispositivos vinculados
   Future<void> _loadBondedDevices() async {
     List<BluetoothDevice> devices = [];
     try {
@@ -67,7 +75,6 @@ class _LecturaScreenState extends State<LecturaScreen> {
     } catch (e) {
       debugPrint("Error al obtener dispositivos: $e");
     }
-
     if (mounted) {
       setState(() {
         _devicesList = devices;
@@ -75,12 +82,11 @@ class _LecturaScreenState extends State<LecturaScreen> {
     }
   }
 
-  // 3. Conectar al HC-05
+  // 3. Conectar e Iniciar Temporizador
   void _connect(BluetoothDevice device) async {
     setState(() => _isConnecting = true);
 
     try {
-      // Intentar conectar
       BluetoothConnection newConnection = await BluetoothConnection.toAddress(
         device.address,
       );
@@ -89,9 +95,13 @@ class _LecturaScreenState extends State<LecturaScreen> {
         connection = newConnection;
         _isConnected = true;
         _isConnecting = false;
+        _isReading = true; // Empezamos a leer
       });
 
-      // Escuchar datos entrantes
+      // INICIAR EL TEMPORIZADOR DE 105 SEGUNDOS
+      _startTimer();
+
+      // Escuchar datos
       connection!.input!.listen(_onDataReceived).onDone(() {
         if (mounted) {
           setState(() => _isConnected = false);
@@ -107,24 +117,77 @@ class _LecturaScreenState extends State<LecturaScreen> {
     }
   }
 
-  // 4. Procesar datos del Stream
-  // El HC-05 envía bytes que pueden llegar fragmentados.
-  // Acumulamos en un buffer hasta encontrar un salto de línea.
+  // --- LÓGICA DEL TEMPORIZADOR ---
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_secondsRemaining > 0) {
+        setState(() {
+          _secondsRemaining--;
+        });
+      } else {
+        // ¡Tiempo terminado!
+        _finishReadingAndRedirect();
+      }
+    });
+  }
+
+  // --- FINALIZAR Y REDIRECCIONAR ---
+  void _finishReadingAndRedirect() {
+    _timer?.cancel();
+    connection?.dispose(); // Desconectar Bluetooth
+
+    // Calcular Promedios
+    double avgTemp = 0.0;
+    if (_tempReadings.isNotEmpty) {
+      avgTemp = _tempReadings.reduce((a, b) => a + b) / _tempReadings.length;
+    }
+
+    int avgHeart = 0;
+    if (_heartReadings.isNotEmpty) {
+      avgHeart =
+          (_heartReadings.reduce((a, b) => a + b) / _heartReadings.length)
+              .round();
+    }
+
+    // CAMBIO: Calcular promedio de respiración
+    double avgResp = 0.0;
+    if (_respReadings.isNotEmpty) {
+      avgResp = _respReadings.reduce((a, b) => a + b) / _respReadings.length;
+    }
+
+    // Redondear valores para pasar a la siguiente pantalla
+    avgTemp = double.parse(avgTemp.toStringAsFixed(1));
+    avgResp = double.parse(avgResp.toStringAsFixed(1));
+
+    // Navegar a IndicadoresScreen pasando los datos
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => IndicadoresScreen(
+            avgTemp: avgTemp,
+            avgHeartRate: avgHeart,
+            avgRespRate: avgResp,
+            // NOTA: Asegúrate de agregar 'averageRespRate' al constructor de IndicadoresScreen
+            // si quieres mostrar este dato allá. Si no, puedes pasar el valor o guardarlo aquí.
+            // averageRespRate: avgResp,
+          ),
+        ),
+      );
+    }
+  }
+
+  // 4. Procesar datos
   void _onDataReceived(Uint8List data) {
     try {
       String incoming = utf8.decode(data);
-      _buffer += incoming; // Acumular
+      _buffer += incoming;
 
-      // Si hay un salto de línea, procesamos el mensaje completo
       if (_buffer.contains('\n')) {
         List<String> lines = _buffer.split('\n');
-
-        // Procesamos todas las líneas completas excepto la última si está incompleta
         for (int i = 0; i < lines.length - 1; i++) {
           _parseSensorString(lines[i].trim());
         }
-
-        // Guardamos el resto (fragmento incompleto) para la siguiente vuelta
         _buffer = lines.last;
       }
     } catch (e) {
@@ -132,49 +195,29 @@ class _LecturaScreenState extends State<LecturaScreen> {
     }
   }
 
-  // Parsear el formato "TEMP,RITMO,X,Y,Z"
+  // Parsear formato "TEMP,RITMO,FREC_RESP,..." (Antes X,Y,Z)
   void _parseSensorString(String dataString) {
     if (dataString.isEmpty) return;
-
-    // Ejemplo esperado: "36.5,78,0.12,0.05,9.8"
     List<String> parts = dataString.split(',');
 
-    if (parts.length >= 5) {
+    // Asumimos que el orden es: Temperatura, Ritmo Cardiaco, Frecuencia Respiratoria
+    if (parts.length >= 3) {
+      double t = double.tryParse(parts[0]) ?? 0.0;
+      int h = int.tryParse(parts[1]) ?? 0;
+      double r =
+          double.tryParse(parts[2]) ??
+          0.0; // Frecuencia Respiratoria (antes AccX)
+
+      // Guardar en listas para el promedio
+      if (t > 0) _tempReadings.add(t);
+      if (h > 0) _heartReadings.add(h);
+      if (r > 0) _respReadings.add(r);
+
       setState(() {
-        _temp = double.tryParse(parts[0]) ?? _temp;
-        _heartRate = int.tryParse(parts[1]) ?? _heartRate;
-        _accX = double.tryParse(parts[2]) ?? _accX;
-        _accY = double.tryParse(parts[3]) ?? _accY;
-        _accZ = double.tryParse(parts[4]) ?? _accZ;
+        _currentTemp = t;
+        _currentHeartRate = h;
+        _currentRespRate = r;
       });
-    }
-  }
-
-  // 5. Guardar en Supabase
-  Future<void> insertSensorData() async {
-    try {
-      final userId = supabase.auth.currentUser!.id;
-
-      await supabase.from('registros_sensor').insert({
-        'id_usuario': userId,
-        'frecuencia_cardiaca': _heartRate,
-        'temperatura_celsius': _temp,
-        'aceleracion_x': _accX,
-        'aceleracion_y': _accY,
-        'aceleracion_z': _accZ,
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Datos guardados en Supabase!')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
-      }
     }
   }
 
@@ -183,82 +226,117 @@ class _LecturaScreenState extends State<LecturaScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text("Conexión HC-05"),
+        title: const Text("Lectura de Sensores"),
         backgroundColor: const Color(0xFF212121),
+        foregroundColor: Colors.white,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const HomeScreen()),
-            );
-          },
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          ),
         ),
-        actions: [
-          if (_isConnected)
-            IconButton(
-              icon: const Icon(Icons.bluetooth_connected, color: Colors.green),
-              onPressed: () {}, // Indicador visual
-            ),
-        ],
       ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              // --- Panel de Datos ---
+            children: [
+              // --- Panel Principal: Temporizador o Estado ---
               Container(
-                padding: const EdgeInsets.all(15),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF333333),
-                  borderRadius: BorderRadius.circular(15),
+                  color: _isReading
+                      ? Colors.green.withOpacity(0.1)
+                      : const Color(0xFF333333),
+                  borderRadius: BorderRadius.circular(20),
+                  border: _isReading
+                      ? Border.all(color: Colors.green, width: 2)
+                      : null,
                 ),
                 child: Column(
                   children: [
-                    const Text(
-                      "Datos en Tiempo Real",
-                      style: TextStyle(color: Colors.white70, fontSize: 18),
-                    ),
-                    const SizedBox(height: 10),
-                    const Divider(color: Colors.grey),
-                    _buildDataRow("Temperatura", "$_temp °C", Icons.thermostat),
-                    _buildDataRow("Ritmo", "$_heartRate BPM", Icons.favorite),
-                    _buildDataRow(
-                      "Aceleración X",
-                      _accX.toStringAsFixed(2),
-                      Icons.speed,
-                    ),
+                    if (_isConnected) ...[
+                      const Text(
+                        "ESCANEANDO...",
+                        style: TextStyle(
+                          color: Colors.greenAccent,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        "$_secondsRemaining s", // TIEMPO RESTANTE
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 60,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(
+                        "Tiempo Restante",
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                    ] else ...[
+                      const Icon(
+                        Icons.bluetooth_searching,
+                        size: 60,
+                        color: Colors.white54,
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        "Selecciona tu dispositivo para iniciar",
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ],
                   ],
                 ),
               ),
 
               const SizedBox(height: 20),
 
-              // --- Lista de Dispositivos o Botones ---
-              if (!_isConnected) ...[
-                const Text(
-                  "Dispositivos Vinculados:",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+              // --- Datos en Vivo ---
+              if (_isConnected)
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF333333),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildLiveValue(
+                          "Temperatura",
+                          "$_currentTemp °C",
+                          Icons.thermostat,
+                        ),
+                        _buildLiveValue(
+                          "Ritmo Cardíaco",
+                          "$_currentHeartRate BPM",
+                          Icons.favorite,
+                        ),
+                        // CAMBIO: Etiqueta e Ícono actualizados
+                        _buildLiveValue(
+                          "Frec. Respiratoria",
+                          _currentRespRate.toStringAsFixed(1),
+                          Icons.air,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 5),
-                const Text(
-                  "(Vincula El HC-05 desde la configuración Bluetooth del teléfono)",
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-                const SizedBox(height: 10),
-
+                )
+              // --- Lista de Dispositivos (Solo si no está conectado) ---
+              else
                 Expanded(
                   child: _devicesList.isEmpty
                       ? Center(
                           child: ElevatedButton(
                             onPressed: _loadBondedDevices,
-                            child: const Text("Refrescar Lista"),
+                            child: const Text("Buscar Dispositivos"),
                           ),
                         )
                       : ListView.builder(
@@ -266,7 +344,8 @@ class _LecturaScreenState extends State<LecturaScreen> {
                           itemBuilder: (context, index) {
                             final device = _devicesList[index];
                             return Card(
-                              color: Colors.grey[800],
+                              color: Colors.grey[900],
+                              margin: const EdgeInsets.symmetric(vertical: 5),
                               child: ListTile(
                                 title: Text(
                                   device.name ?? "Desconocido",
@@ -274,7 +353,7 @@ class _LecturaScreenState extends State<LecturaScreen> {
                                 ),
                                 subtitle: Text(
                                   device.address,
-                                  style: const TextStyle(color: Colors.white54),
+                                  style: const TextStyle(color: Colors.grey),
                                 ),
                                 trailing: ElevatedButton(
                                   style: ElevatedButton.styleFrom(
@@ -283,8 +362,9 @@ class _LecturaScreenState extends State<LecturaScreen> {
                                   onPressed: _isConnecting
                                       ? null
                                       : () => _connect(device),
-                                  child: Text(
-                                    _isConnecting ? "..." : "Conectar",
+                                  child: const Text(
+                                    "Conectar",
+                                    style: TextStyle(color: Colors.white),
                                   ),
                                 ),
                               ),
@@ -292,70 +372,6 @@ class _LecturaScreenState extends State<LecturaScreen> {
                           },
                         ),
                 ),
-              ] else ...[
-                const Expanded(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.bluetooth_audio,
-                          size: 100,
-                          color: Color(0xFF004AAD),
-                        ),
-                        SizedBox(height: 20),
-                        Text(
-                          "Recibiendo datos del HC-05...",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                SizedBox(
-                  height: 60,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    ),
-                    onPressed: insertSensorData,
-                    child: const Text(
-                      "GUARDAR EN NUBE",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 60,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    ),
-                    onPressed: () {
-                      connection?.dispose();
-                      setState(() => _isConnected = false);
-                    },
-                    child: const Text(
-                      "DESCONECTAR",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -363,32 +379,29 @@ class _LecturaScreenState extends State<LecturaScreen> {
     );
   }
 
-  Widget _buildDataRow(String label, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: const Color(0xFF004AAD), size: 24),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ],
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
+  Widget _buildLiveValue(String label, String value, IconData icon) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: const Color(0xFF004AAD)),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white70, fontSize: 16),
             ),
+          ],
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
