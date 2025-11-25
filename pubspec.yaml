@@ -12,6 +12,8 @@ dependencies:
   fl_chart: ^0.65.0  # <--- AGREGAR ESTA LÍNEA
   supabase_flutter: ^2.0.0
   flutter_dotenv: 5.0.0
+  flutter_bluetooth_serial: ^0.4.0
+  permission_handler: ^11.3.0
   
 dev_dependencies:
   flutter_test:

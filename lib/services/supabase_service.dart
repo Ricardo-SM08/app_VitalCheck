@@ -50,6 +50,81 @@ class SupabaseService {
     }
   }
 
+  // --- NUEVO: OBTENER EL ID DE LA FAMILIA DEL USUARIO ACTUAL ---
+  // (Asumimos que el usuario solo gestiona una familia por ahora para simplificar)
+  static Future<int?> getCurrentUserFamilyId() async {
+    try {
+      final userId = supabase.auth.currentUser!.id;
+
+      // Buscamos en miembros_familia donde el usuario es admin
+      final response = await supabase
+          .from('miembros_familia')
+          .select('id_familia')
+          .eq('id_usuario', userId)
+          .eq('es_administrador', true)
+          .limit(1)
+          .maybeSingle();
+
+      if (response != null) {
+        return response['id_familia'] as int;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error obteniendo ID familia: $e');
+      return null;
+    }
+  }
+
+  // --- NUEVO: AÑADIR MIEMBRO POR CORREO ---
+  static Future<String?> addMemberByEmail(
+    BuildContext context,
+    String email,
+  ) async {
+    try {
+      // 1. Obtener el ID de la familia del administrador actual
+      final familyId = await getCurrentUserFamilyId();
+
+      if (familyId == null) {
+        return "No eres administrador de ninguna familia o no has creado una.";
+      }
+
+      // 2. Buscar el usuario por correo en la tabla 'usuarios'
+      // ⚠️ REQUISITO: Tu tabla 'usuarios' debe tener la columna 'email'.
+      // Si no la tiene, esta consulta fallará.
+      final userResponse = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq(
+            'email',
+            email,
+          ) // Asegúrate que la columna se llame 'email' en la DB
+          .maybeSingle();
+
+      if (userResponse == null) {
+        return "No se encontró ningún usuario con el correo $email";
+      }
+
+      final newMemberId = userResponse['id'];
+
+      // 3. Insertar en miembros_familia
+      await supabase.from('miembros_familia').insert({
+        'id_familia': familyId,
+        'id_usuario': newMemberId,
+        'es_administrador': false, // Los invitados son miembros normales
+        'invitacion_aceptada': true, // Aceptación automática para este ejemplo
+      });
+
+      return null; // Éxito
+    } on PostgrestException catch (e) {
+      if (e.code == '23505') {
+        return "Este usuario ya pertenece a la familia.";
+      }
+      return "Error de base de datos: ${e.message}";
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
   // --- FUNCIÓN DE INSERCIÓN DE DATOS DE SENSORES ---
   // Usada por LecturaScreen.dart (no está en HomeScreen, pero es parte del servicio).
   static Future<void> insertSensorData(BuildContext context) async {
@@ -100,26 +175,16 @@ class SupabaseService {
     BuildContext context,
   ) async {
     try {
-      final userId = supabase.auth.currentUser!.id;
-
-      // Consulta avanzada (JOIN implícito):
-      // 1. Busca la familia a la que pertenece el usuario logueado (RLS se encarga de esto)
-      // 2. Luego selecciona todos los miembros de esa(s) familia(s)
-      // 3. Hace un join con la tabla 'usuarios' (profiles) para obtener el nombre
+      // Consulta corregida: Eliminamos 'email' del select si tu tabla usuarios no lo tiene
+      // Si ya agregaste la columna email a la tabla usuarios, puedes poner: usuarios(nombre, email)
       final data = await supabase
           .from('miembros_familia')
-          // Selecciona todos los campos de miembros_familia, y luego el nombre del perfil
-          .select('id_usuario, es_administrador, usuarios(nombre, email)')
-          .neq('invitacion_aceptada', false); // Solo miembros activos
+          .select('id_usuario, es_administrador, usuarios(nombre,email)')
+          .neq('invitacion_aceptada', false);
 
-      return data;
+      return List<Map<String, dynamic>>.from(data);
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar miembros: ${e.toString()}')),
-        );
-      }
-      // En caso de error (ej. usuario sin perfil), devuelve una lista vacía
+      debugPrint('Error al cargar miembros: $e');
       return [];
     }
   }

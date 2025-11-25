@@ -46,25 +46,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      // REGISTRO en el sistema de autenticación de Supabase (auth.users)
+      // 1. REGISTRO en el sistema de autenticación de Supabase (auth.users)
       final AuthResponse response = await supabase.auth.signUp(
         email: _emailController.text,
         password: _passwordController.text,
-        data: {
-          'nombre': _nameController.text,
-        }, // guardar nombre en metadatos de auth
+        data: {'nombre': _nameController.text},
       );
 
       // CREACIÓN DE PERFIL en la tabla 'usuarios'
       if (response.user != null) {
         final user = response.user!;
 
-        await supabase.from('usuarios').insert({
-          'id': user.id,
-          'nombre': _nameController.text,
-        });
+        try {
+          // Intenta insertar el perfil
+          await supabase.from('usuarios').insert({
+            'id': user.id,
+            'nombre': _nameController.text,
+          });
+        } on PostgrestException catch (e) {
+          // 🚨 NUEVA LÓGICA: Captura el error de CLAVE DUPLICADA (23505)
+          if (e.code == '23505') {
+            debugPrint(
+              'Perfil ya existente (23505): Continuando con la navegación.',
+            );
+            // Si el perfil ya existe, no es un error fatal. Simplemente seguimos.
+          } else {
+            // Si es otro error de DB, lo relanzamos
+            rethrow;
+          }
+        }
 
-        // Mensaje de éxito y navegación a LoginScreen
+        // 2. Mensaje de éxito y navegación a LoginScreen (Paso final)
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Registro exitoso. ¡Inicia sesión!')),
@@ -73,29 +85,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
             context,
             MaterialPageRoute(builder: (context) => const LoginScreen()),
           );
-        } else {
-          throw Exception(
-            'Registro Auth existoso, pero la sesion no se establecio correctamente.',
-          );
         }
       }
     } on AuthException catch (e) {
-      // Manejo de errores específicos de autenticación (ej. email ya existe o contraseña débil)
+      // Manejo de errores específicos de autenticación
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error de Auth: ${e.message}')));
       }
     } catch (e) {
-      // Manejo de otros errores (red, error en la inserción del perfil, etc.)
-      debugPrint('-- ERROR INESPERADO (SQL/DB)');
+      // Manejo de errores generales/DB (incluyendo cualquier PostgrestException que rethrow)
+      debugPrint('-- ERROR FATAL (SQL/DB) --');
       debugPrint(e.toString());
-      debugPrint('--------------------------');
+      debugPrint('---------------------------');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error revise la terminal para el mensaje de DB'),
-          ),
+          SnackBar(content: Text('Error al crear perfil: ${e.toString()}')),
         );
       }
     } finally {

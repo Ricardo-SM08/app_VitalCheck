@@ -36,12 +36,11 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
     String? error;
 
     // LÓGICA:
-    // Si NO tiene '@', asumimos que es un NOMBRE DE FAMILIA para crear.
-    // Si TIENE '@', asumimos que es un CORREO para invitar.
+    // Si NO tiene '@', es NOMBRE DE FAMILIA para CREAR.
+    // Si TIENE '@', es CORREO para INVITAR.
 
     if (!input.contains('@')) {
       // --- CASO 1: CREAR FAMILIA ---
-      // Llamamos a la función real del servicio
       error = await SupabaseService.createFamily(context, input);
 
       if (error == null && mounted) {
@@ -50,19 +49,19 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
         );
       }
     } else {
-      // --- CASO 2: INVITAR MIEMBRO (Pendiente de implementar en servicio) ---
-      // Por ahora mostramos un mensaje temporal
-      if (mounted) {
+      // --- CASO 2: INVITAR MIEMBRO ---
+      error = await SupabaseService.addMemberByEmail(context, input);
+
+      if (error == null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Invitación a "$input" enviada (Simulado)')),
+          SnackBar(content: Text('Usuario "$input" añadido con éxito!')),
         );
       }
-      // error = await SupabaseService.inviteMember(context, input); // Futuro
     }
 
     setState(() => _isLoading = false); // Desactivar carga
 
-    // Si no hubo error, regresamos a la pantalla de Familia para ver los cambios
+    // Si no hubo error, regresamos a la pantalla de Familia
     if (mounted && error == null) {
       Navigator.pushReplacement(
         context,
@@ -107,7 +106,7 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 const Text(
-                  'Crear Familia',
+                  'Gestión Familiar',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 34,
@@ -118,14 +117,14 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
                 const SizedBox(height: 10),
 
                 const Text(
-                  'Ingresa el nombre para crear tu familia.',
-                  style: TextStyle(color: Colors.white, fontSize: 20),
+                  'Escribe un nombre para CREAR una familia nueva.\nO escribe un correo (ej. usuario@mail.com) para AÑADIR a alguien a tu familia actual.',
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
 
                 const Text(
-                  'Nombre de la Familia',
+                  'Nombre o Correo',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -140,7 +139,7 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
                   decoration: const InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
-                    hintText: 'Ej. Familia Pérez',
+                    hintText: 'Familia Pérez / juan@gmail.com',
                     hintStyle: TextStyle(color: Colors.grey),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(10.0)),
@@ -151,8 +150,7 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
                       horizontal: 15.0,
                     ),
                   ),
-                  // Cambiado a 'text' porque es para nombres principalmente ahora
-                  keyboardType: TextInputType.text,
+                  keyboardType: TextInputType.emailAddress,
                 ),
 
                 const SizedBox(height: 80),
@@ -168,12 +166,12 @@ class _AgregarFamiliaScreenState extends State<AgregarFamiliaScreen> {
                       ),
                       elevation: 5,
                     ),
-                    // Si está cargando, deshabilita el botón. Si no, llama a _handleAction
+                    // Si está cargando, deshabilita el botón
                     onPressed: _isLoading ? null : _handleAction,
                     child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text(
-                            'CREAR',
+                            'PROCESAR',
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
